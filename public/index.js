@@ -2,20 +2,14 @@ const canvas = document.getElementById('drawing-board');
 const toolbar = document.getElementById('toolbar');
 const ctx = canvas.getContext('2d');
 
-const canvasOffsetX = canvas.offsetLeft;
-const canvasOffsetY = canvas.offsetTop;
-
-canvas.width = window.innerWidth - canvasOffsetX;
-canvas.height = window.innerHeight - canvasOffsetY;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 
 let isPainting = false;
 let isErasing = false;
 let lineWidth = 5;
-let startX;
-let startY;
-let currentColor = '#000000';  //keep og color after erase
+let currentColor = '#000000'; //keep og color after erase
 let prevX, prevY;
-
 
 ctx.strokeStyle = currentColor;
 
@@ -23,9 +17,7 @@ ctx.strokeStyle = currentColor;
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const ws = new WebSocket(`${protocol}//${window.location.host}`);
 
-ws.onopen = () => {
-    console.log('Connected to server');
-};
+ws.onopen = () => console.log('Connected to server');
 
 ws.onmessage = async (event) => {
     let text;
@@ -133,52 +125,52 @@ toolbar.addEventListener('change', e => {
     }
 });
 
-const draw = (e) => {
-    if(!isPainting) return;
+//get cords dynamically
+function getCanvasCoords(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: e.clientX - rect.left,
+        y: e.clientY - rect.top
+    };
+}
 
-    const x = e.clientX - canvasOffsetX;
-    const y = e.clientY - canvasOffsetY;
+const draw = (e) => {
+    if (!isPainting) return;
+
+    const {x, y} = getCanvasCoords(e);
 
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
 
     ctx.beginPath();
-    ctx.moveTo(prevX, prevY); 
+    ctx.moveTo(prevX, prevY);
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    //update prev
     prevX = x;
     prevY = y;
 
-    //send data to server
     sendDrawData('draw', x, y);
-}
+};
 
 canvas.addEventListener('mousedown', e => {
     isPainting = true;
-
-    const x = e.clientX - canvasOffsetX;
-    const y = e.clientY - canvasOffsetY;
-
-    prevX = x; //set prev
+    const {x, y} = getCanvasCoords(e);
+    prevX = x;
     prevY = y;
 
     ctx.beginPath();
-
     sendDrawData('start', x, y);
 });
 
 canvas.addEventListener('mouseup', e => {
     if (isPainting) {
         isPainting = false;
-        const x = e.clientX - canvasOffsetX;
-        const y = e.clientY - canvasOffsetY;
-        
+        const {x, y} = getCanvasCoords(e);
+
         ctx.stroke();
         ctx.beginPath();
-        
-        //send stopping 
+
         sendDrawData('end', x, y);
     }
 });
