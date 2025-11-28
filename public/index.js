@@ -13,11 +13,13 @@ let isErasing = false;
 let lineWidth = 5;
 let startX;
 let startY;
-let currentColor = '#000000';  //used to keep persistance of color after erasing
+let currentColor = '#000000';  //keep og color after erase
+let prevX, prevY;
+
 
 ctx.strokeStyle = currentColor;
 
-// WebSocket connection
+//websocket
 const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
 const ws = new WebSocket(`${protocol}//${window.location.host}`);
 
@@ -28,11 +30,11 @@ ws.onopen = () => {
 ws.onmessage = async (event) => {
     let text;
 
-    // If Blob → convert to text
+    //convert blob data to texts
     if (event.data instanceof Blob) {
         text = await event.data.text();
     }
-    // If already string → use directly
+    //if its text alr just use it
     else if (typeof event.data === "string") {
         text = event.data;
     }
@@ -62,7 +64,7 @@ ws.onclose = () => {
     console.log('Disconnected from server');
 };
 
-// Draw actions from other users
+//add drawings from others 
 function drawRemote(data) {
     ctx.strokeStyle = data.color;
     ctx.lineWidth = data.lineWidth;
@@ -80,7 +82,7 @@ function drawRemote(data) {
     }
 }
 
-// Send drawing data to server
+//send drawings to server
 function sendDrawData(action, x, y) {
     if (ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({
@@ -97,7 +99,7 @@ function sendDrawData(action, x, y) {
 toolbar.addEventListener('click', e => {
     if (e.target.id === 'clear') {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        // Notify server to clear for everyone
+        //when clear is pressed get rid of it for everyone
         if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: 'clear' }));
         }
@@ -132,9 +134,7 @@ toolbar.addEventListener('change', e => {
 });
 
 const draw = (e) => {
-    if(!isPainting) {
-        return;
-    }
+    if(!isPainting) return;
 
     const x = e.clientX - canvasOffsetX;
     const y = e.clientY - canvasOffsetY;
@@ -142,25 +142,30 @@ const draw = (e) => {
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
 
+    ctx.beginPath();
+    ctx.moveTo(prevX, prevY); 
     ctx.lineTo(x, y);
     ctx.stroke();
-    
-    // Send to other users and save to history
+
+    //update prev
+    prevX = x;
+    prevY = y;
+
+    //send data to server
     sendDrawData('draw', x, y);
 }
 
-canvas.addEventListener('mousedown', (e) => {
+canvas.addEventListener('mousedown', e => {
     isPainting = true;
+
     const x = e.clientX - canvasOffsetX;
     const y = e.clientY - canvasOffsetY;
-    
+
+    prevX = x; //set prev
+    prevY = y;
+
     ctx.beginPath();
-    ctx.moveTo(x, y);
-    
-    startX = x;
-    startY = y;
-    
-    // Send start event
+
     sendDrawData('start', x, y);
 });
 
@@ -173,7 +178,7 @@ canvas.addEventListener('mouseup', e => {
         ctx.stroke();
         ctx.beginPath();
         
-        // Send end event
+        //send stopping 
         sendDrawData('end', x, y);
     }
 });
