@@ -142,6 +142,8 @@ const draw = (e) => {
     ctx.lineWidth = lineWidth;
     ctx.lineCap = 'round';
 
+    ctx.beginPath();
+    ctx.moveTo(prevX, prevY);
     ctx.lineTo(x, y);
     ctx.stroke();
     
